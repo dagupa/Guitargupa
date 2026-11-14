@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Guitargupa – Afinador cromático</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#E6ECEE;--surface:#F6F9FA;--ink:#11232B;--mute:#566A73;--ok:#0E8A5F;--warn:#C8432A;--line:#C3D0D5;color-scheme:light;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0E171B;--surface:#16242A;--ink:#E4EEF1;--mute:#8DA2AB;--ok:#3DD6A0;--warn:#FF7A5C;--line:#29404A;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0E171B;--surface:#16242A;--ink:#E4EEF1;--mute:#8DA2AB;--ok:#3DD6A0;--warn:#FF7A5C;--line:#29404A;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
+main{max-width:480px;margin:0 auto;padding:14px 16px 28px;display:flex;flex-direction:column;gap:14px}
+header{display:flex;align-items:center;justify-content:space-between}
+h1{font-size:22px;font-weight:800;margin:0;letter-spacing:-.02em}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--ok);outline-offset:2px}
+.icon{background:none;border:1px solid var(--line);border-radius:10px;width:42px;height:42px;font-size:18px}
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px}
+.tabs button{border:0;background:none;padding:10px 4px;border-radius:9px;font-weight:600;color:var(--mute)}
+.tabs button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.meter{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:10px 10px 18px;text-align:center}
+svg{width:100%;height:auto;display:block}
+#needle{transform-origin:150px 150px;transition:transform .12s linear}
+.note{font-size:84px;font-weight:800;line-height:.95;letter-spacing:-.04em;margin-top:-6px}
+.note small{font-size:30px;font-weight:600;color:var(--mute);letter-spacing:0}
+.status{font-weight:600;min-height:24px;margin-top:6px;color:var(--mute)}
+.status.ok{color:var(--ok)}.status.bad{color:var(--warn)}
+.info{display:flex;justify-content:center;gap:22px;color:var(--mute);font-size:14px;margin-top:4px}
+.strings{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.strings button{min-width:52px;padding:10px 8px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-weight:800;font-size:18px}
+.strings button small{display:block;font-size:11px;font-weight:400;color:var(--mute)}
+.strings button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.strings button.on small{color:var(--bg)}
+.row{display:flex;gap:8px}
+select{flex:1;min-width:0;padding:11px 10px;border-radius:12px;border:1px solid var(--line);background:var(--surface)}
+.big{width:100%;padding:16px;border-radius:14px;border:0;background:var(--ink);color:var(--bg);font-weight:800;font-size:18px}
+.big.live{background:var(--warn);color:#fff}
+.ghost{flex:1;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-weight:600}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:none;flex-direction:column;gap:12px}
+.panel.open{display:flex}
+.panel label{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.panel input[type=range]{flex:1}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{border:1px solid var(--line);background:var(--surface);border-radius:20px;padding:6px 12px;font-size:13px}
+.msg{font-size:14px;color:var(--warn);min-height:18px;text-align:center}
+@media (prefers-reduced-motion:reduce){#needle{transition:none}}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>Guitargupa</h1>
+  <button class="icon" id="cfgBtn" aria-label="Ajustes">⚙</button>
+</header>
+
+<div class="panel" id="cfg">
+  <label>Frecuencia del La (A4)<span><b id="a4v">440</b> Hz</span></label>
+  <input type="range" id="a4" min="415" max="466" value="440" aria-label="Frecuencia de referencia">
+  <label>Notas en Do, Re, Mi…<input type="checkbox" id="sol"></label>
+  <label>Tema
+    <select id="theme" style="flex:0 0 130px"><option value="auto">Automático</option><option value="light">Claro</option><option value="dark">Oscuro</option></select>
+  </label>
+  <div><b style="font-size:14px">Afinaciones favoritas</b><div class="chips" id="favs"></div></div>
+</div>
+
+<div class="tabs" role="group" aria-label="Modo">
+  <button data-m="auto" aria-pressed="true">Auto</button>
+  <button data-m="manual" aria-pressed="false">Manual</button>
+  <button data-m="chromatic" aria-pressed="false">Cromático</button>
+</div>
+
+<section class="meter" aria-live="polite">
+  <svg viewBox="0 0 300 175" aria-hidden="true">
+    <path id="zone" fill="none" stroke="var(--ok)" stroke-width="10" stroke-linecap="round" opacity=".35"/>
+    <g id="ticks" stroke="var(--mute)"></g>
+    <g id="needle" stroke="var(--ink)" fill="var(--ink)"><line x1="150" y1="150" x2="150" y2="44" stroke-width="3" stroke-linecap="round"/><circle cx="150" cy="150" r="8"/></g>
+  </svg>
+  <div class="note"><span id="nn">–</span><small id="no"></small></div>
+  <div class="status" id="st">Toca el micrófono y pulsa una cuerda</div>
+  <div class="info"><span id="hz">– Hz</span><span id="ct">– cents</span><span id="tg"></span></div>
+</section>
+
+<div class="strings" id="strings"></div>
+
+<div class="row">
+  <select id="inst" aria-label="Instrumento"></select>
+  <select id="tun" aria-label="Afinación"></select>
+  <button class="icon" id="fav" aria-label="Guardar como favorita">☆</button>
+</div>
+
+<div class="row">
+  <button class="ghost" id="play">Escuchar nota</button>
+</div>
+<button class="big" id="mic">Activar micrófono</button>
+<div class="msg" id="msg"></div>
+</main>
+
+<script>
+const NE=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const NS=['Do','Do#','Re','Re#','Mi','Fa','Fa#','Sol','Sol#','La','La#','Si'];
+const T={
+ 'Guitarra':{'Estándar':'E2 A2 D3 G3 B3 E4','Drop D':'D2 A2 D3 G3 B3 E4','Drop C':'C2 G2 C3 F3 A3 D4','DADGAD':'D2 A2 D3 G3 A3 D4','Open G':'D2 G2 D3 G3 B3 D4','Open D':'D2 A2 D3 F#3 A3 D4','Open E':'E2 B2 E3 G#3 B3 E4','Medio tono abajo':'D#2 G#2 C#3 F#3 A#3 D#4','Un tono abajo':'D2 G2 C3 F3 A3 D4'},
+ 'Guitarra 7 cuerdas':{'Estándar':'B1 E2 A2 D3 G3 B3 E4','Drop A':'A1 E2 A2 D3 G3 B3 E4'},
+ 'Guitarra 12 cuerdas':{'Estándar':'E3 E2 A3 A2 D4 D3 G4 G3 B3 B3 E4 E4'},
+ 'Bajo 4 cuerdas':{'Estándar':'E1 A1 D2 G2','Drop D':'D1 A1 D2 G2','Medio tono abajo':'D#1 G#1 C#2 F#2'},
+ 'Bajo 5 cuerdas':{'Estándar':'B0 E1 A1 D2 G2'},
+ 'Ukelele':{'Estándar (GCEA)':'G4 C4 E4 A4','Barítono':'D3 G3 B3 E4'},
+ 'Violín':{'Estándar':'G3 D4 A4 E5'},
+ 'Viola':{'Estándar':'C3 G3 D4 A4'},
+ 'Violonchelo':{'Estándar':'C2 G2 D3 A3'},
+ 'Mandolina':{'Estándar':'G3 D4 A4 E5'},
+ 'Banjo':{'Open G':'G4 D3 G3 B3 D4','Doble C':'G4 C3 G3 C4 D4'},
+ 'Balalaika':{'Estándar':'E4 E4 A4'}
+};
+const $=s=>document.querySelector(s);
+const S={inst:'Guitarra',tun:'Estándar',mode:'auto',sel:0,a4:440,sol:false,favs:[],theme:'auto'};
+let ctx,an,buf,stream,running=false,last=0,hist=[],lastHeard=0,rctx;
+
+function load(){try{Object.assign(S,JSON.parse(localStorage.getItem('gg')||'{}'))}catch(e){}}
+function save(){try{localStorage.setItem('gg',JSON.stringify({a4:S.a4,sol:S.sol,favs:S.favs,theme:S.theme,inst:S.inst,tun:S.tun}))}catch(e){}}
+const midiOf=n=>{const m=n.match(/^([A-G]#?)(-?\d)$/);return 12*(+m[2]+1)+NE.indexOf(m[1])};
+const nameOf=m=>(S.sol?NS:NE)[((m%12)+12)%12];
+const octOf=m=>Math.floor(m/12)-1;
+const hzOf=m=>S.a4*Math.pow(2,(m-69)/12);
+const strs=()=>T[S.inst][S.tun].split(' ').map(midiOf);
+
+function drawGauge(){
+  let h='';
+  for(let c=-50;c<=50;c+=5){
+    const a=c*0.9*Math.PI/180,big=c%10===0,r1=big?110:116,r2=126;
+    h+=`<line x1="${150+r1*Math.sin(a)}" y1="${150-r1*Math.cos(a)}" x2="${150+r2*Math.sin(a)}" y2="${150-r2*Math.cos(a)}" stroke-width="${c===0?3:big?2:1}"/>`;
+  }
+  $('#ticks').innerHTML=h;
+  const p=d=>{const a=d*0.9*Math.PI/180;return [150+138*Math.sin(a),150-138*Math.cos(a)]};
+  const [x1,y1]=p(-5),[x2,y2]=p(5);
+  $('#zone').setAttribute('d',`M${x1} ${y1} A138 138 0 0 1 ${x2} ${y2}`);
+}
+
+function fillInst(){
+  $('#inst').innerHTML=Object.keys(T).map(k=>`<option ${k===S.inst?'selected':''}>${k}</option>`).join('');
+  fillTun();
+}
+function fillTun(){
+  const ks=Object.keys(T[S.inst]);
+  if(!ks.includes(S.tun))S.tun=ks[0];
+  $('#tun').innerHTML=ks.map(k=>`<option ${k===S.tun?'selected':''}>${k}</option>`).join('');
+  S.sel=0;drawStrings();favUI();
+}
+function drawStrings(){
+  const box=$('#strings');
+  box.style.display=S.mode==='chromatic'?'none':'flex';
+  box.innerHTML=strs().map((m,i)=>`<button data-i="${i}" class="${S.mode==='manual'&&i===S.sel?'on':''}">${nameOf(m)}<small>${octOf(m)}</small></button>`).join('');
+  $('#play').style.display=S.mode==='chromatic'?'none':'';
+}
+function favKey(){return S.inst+'|'+S.tun}
+function favUI(){
+  $('#fav').textContent=S.favs.includes(favKey())?'★':'☆';
+  $('#favs').innerHTML=S.favs.length?S.favs.map(f=>`<button data-f="${f}">${f.replace('|',' · ')}</button>`).join(''):'<span style="color:var(--mute);font-size:13px">Pulsa ☆ para guardar la afinación actual.</span>';
+}
+
+/* Detección de tono (YIN) */
+function yin(b,sr){
+  const N=b.length,W=N>>1;let r=0;
+  for(let i=0;i<N;i++)r+=b[i]*b[i];
+  if(Math.sqrt(r/N)<0.008)return -1;
+  const tmax=Math.min(W-2,Math.floor(sr/25)),tmin=Math.max(2,Math.floor(sr/1500));
+  const d=new Float32Array(tmax+2);
+  for(let t=1;t<=tmax;t++){let s=0;for(let i=0;i<W;i++){const x=b[i]-b[i+t];s+=x*x}d[t]=s}
+  let run=0;const dp=new Float32Array(tmax+2);dp[0]=1;
+  for(let t=1;t<=tmax;t++){run+=d[t];dp[t]=d[t]*t/(run||1)}
+  let t=tmin;
+  while(t<tmax){
+    if(dp[t]<0.12){while(t+1<tmax&&dp[t+1]<dp[t])t++;
+      const a=dp[t-1],bb=dp[t],c=dp[t+1],den=a-2*bb+c;
+      const sh=den?0.5*(a-c)/den:0;return sr/(t+sh)}
+    t++;
+  }
+  return -1;
+}
+
+function update(f){
+  const midiF=12*Math.log2(f/S.a4)+69,list=strs();
+  let tm,idx=-1;
+  if(S.mode==='chromatic')tm=Math.round(midiF);
+  else if(S.mode==='manual')tm=list[S.sel],idx=S.sel;
+  else{let best=1e9;list.forEach((m,i)=>{const d=Math.abs(midiF-m);if(d<best){best=d;tm=m;idx=i}})}
+  const cents=(midiF-tm)*100,cc=Math.max(-50,Math.min(50,cents));
+  $('#needle').style.transform=`rotate(${cc*0.9}deg)`;
+  $('#nn').textContent=nameOf(tm);$('#no').textContent=octOf(tm);
+  $('#hz').textContent=f.toFixed(1)+' Hz';
+  $('#ct').textContent=(cents>0?'+':'')+cents.toFixed(0)+' cents';
+  $('#tg').textContent='Objetivo '+hzOf(tm).toFixed(1)+' Hz';
+  const st=$('#st');
+  if(Math.abs(cents)<=5){st.textContent='Afinada';st.className='status ok'}
+  else if(cents<0){st.textContent='Baja: aprieta la cuerda';st.className='status bad'}
+  else{st.textContent='Alta: afloja la cuerda';st.className='status bad'}
+  if(S.mode==='auto')document.querySelectorAll('#strings button').forEach((b,i)=>b.classList.toggle('on',i===idx));
+}
+
+function loop(t){
+  if(!running)return;
+  requestAnimationFrame(loop);
+  if(t-last<50)return;last=t;
+  an.getFloatTimeDomainData(buf);
+  const f=yin(buf,ctx.sampleRate);
+  if(f>0){
+    hist.push(f);if(hist.length>3)hist.shift();
+    const m=[...hist].sort((a,b)=>a-b)[hist.length>>1];
+    lastHeard=t;update(m);
+  }else if(t-lastHeard>1500){
+    hist=[];$('#needle').style.transform='rotate(0deg)';
+    $('#st').textContent='Toca una cuerda';$('#st').className='status';
+  }
+}
+
+async function start(){
+  $('#msg').textContent='';
+  try{
+    ctx=new (window.AudioContext||window.webkitAudioContext)();
+    stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+    const src=ctx.createMediaStreamSource(stream);
+    an=ctx.createAnalyser();an.fftSize=8192;src.connect(an);
+    buf=new Float32Array(an.fftSize);running=true;
+    $('#mic').textContent='Detener micrófono';$('#mic').classList.add('live');
+    $('#st').textContent='Toca una cuerda';
+    requestAnimationFrame(loop);
+  }catch(e){
+    $('#msg').textContent='No se pudo acceder al micrófono. Permite el acceso en el navegador; si abres esto dentro de otra app, ábrelo en Chrome.';
+  }
+}
+function stop(){
+  running=false;
+  if(stream)stream.getTracks().forEach(t=>t.stop());
+  if(ctx)ctx.close();
+  $('#mic').textContent='Activar micrófono';$('#mic').classList.remove('live');
+  $('#needle').style.transform='rotate(0deg)';
+}
+
+function playTone(m){
+  try{
+    rctx=rctx||new (window.AudioContext||window.webkitAudioContext)();
+    const o=rctx.createOscillator(),g=rctx.createGain(),n=rctx.currentTime;
+    o.type='triangle';o.frequency.value=hzOf(m);
+    g.gain.setValueAtTime(0,n);g.gain.linearRampToValueAtTime(.35,n+.03);g.gain.exponentialRampToValueAtTime(.001,n+2.2);
+    o.connect(g);g.connect(rctx.destination);o.start(n);o.stop(n+2.3);
+  }catch(e){}
+}
+
+function applyTheme(){
+  if(S.theme==='auto')document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme',S.theme);
+}
+
+/* Eventos */
+$('#cfgBtn').onclick=()=>$('#cfg').classList.toggle('open');
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
+  S.mode=b.dataset.m;
+  document.querySelectorAll('.tabs button').forEach(x=>x.setAttribute('aria-pressed',x===b));
+  drawStrings();
+});
+$('#strings').onclick=e=>{
+  const b=e.target.closest('button');if(!b)return;
+  const i=+b.dataset.i;
+  if(S.mode!=='chromatic'){
+    if(S.mode==='auto'){S.mode='manual';document.querySelectorAll('.tabs button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.m==='manual'))}
+    S.sel=i;drawStrings();playTone(strs()[i]);
+  }
+};
+$('#play').onclick=()=>playTone(strs()[S.sel]);
+$('#inst').onchange=e=>{S.inst=e.target.value;fillTun();save()};
+$('#tun').onchange=e=>{S.tun=e.target.value;S.sel=0;drawStrings();favUI();save()};
+$('#fav').onclick=()=>{
+  const k=favKey(),i=S.favs.indexOf(k);
+  i>=0?S.favs.splice(i,1):S.favs.push(k);favUI();save();
+};
+$('#favs').onclick=e=>{
+  const b=e.target.closest('button');if(!b)return;
+  const [i,t]=b.dataset.f.split('|');S.inst=i;S.tun=t;fillInst();save();
+};
+$('#a4').oninput=e=>{S.a4=+e.target.value;$('#a4v').textContent=S.a4;save()};
+$('#sol').onchange=e=>{S.sol=e.target.checked;drawStrings();save()};
+$('#theme').onchange=e=>{S.theme=e.target.value;applyTheme();save()};
+$('#mic').onclick=()=>running?stop():start();
+
+load();
+if(!T[S.inst])S.inst='Guitarra';
+$('#a4').value=S.a4;$('#a4v').textContent=S.a4;$('#sol').checked=S.sol;$('#theme').value=S.theme;
+applyTheme();drawGauge();fillInst();
+</script>
+</body>
+</html>
