@@ -74,6 +74,21 @@ select{flex:1;min-width:0;padding:11px 10px;border-radius:12px;border:1px solid 
 #splash p{margin:0;text-align:center;color:#d9c9a3;font-weight:600;letter-spacing:.12em;font-size:13px;opacity:.8}
 @keyframes pop{0%{transform:scale(.6);opacity:0}100%{transform:scale(1);opacity:1}}
 @media (prefers-reduced-motion:reduce){#splash img{animation:none}#splash{transition:none}}
+[hidden]{display:none!important}
+#tunerView,#metroView{display:flex;flex-direction:column;gap:14px}
+.vtabs{display:grid;grid-template-columns:repeat(2,1fr);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px}
+.vtabs button{border:0;background:none;padding:10px 4px;border-radius:9px;font-weight:600;color:var(--mute)}
+.vtabs button[aria-pressed="true"]{background:linear-gradient(135deg,var(--a1),var(--a2));color:#fff;box-shadow:0 4px 14px -4px var(--a1)}
+.note #bpmv{display:inline-block;background:linear-gradient(135deg,var(--a1),var(--a2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.dots{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:12px}
+.dot{width:44px;height:44px;border-radius:50%;border:2px solid var(--line);background:var(--surface);font-weight:800;transition:transform .08s}
+.dot.l3{background:linear-gradient(135deg,var(--a1),var(--a2));color:#fff;border-color:transparent}
+.dot.l2{border-color:var(--a2)}
+.dot.l1{opacity:.55}
+.dot.l0{opacity:.35;text-decoration:line-through}
+.dot.now{transform:scale(1.22);box-shadow:0 0 14px var(--a2)}
+.fld{flex:1;display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mute);min-width:0}
+.hint{font-size:13px;color:var(--mute);text-align:center;margin:0}
 </style>
 </head>
 <body>
@@ -85,6 +100,7 @@ select{flex:1;min-width:0;padding:11px 10px;border-radius:12px;border:1px solid 
 </header>
 
 <div class="panel" id="cfg">
+  <label>Idioma / Language<select id="lang" style="flex:0 0 130px"><option value="es">Español</option><option value="en">English</option></select></label>
   <label>Frecuencia del La (A4)<span><b id="a4v">440</b> Hz</span></label>
   <input type="range" id="a4" min="415" max="466" value="440" aria-label="Frecuencia de referencia">
   <label>Notas en Do, Re, Mi…<input type="checkbox" id="sol"></label>
@@ -137,6 +153,16 @@ select{flex:1;min-width:0;padding:11px 10px;border-radius:12px;border:1px solid 
       <li><b>Sonido y vibración:</b> actívalos o quítalos cuando la cuerda queda afinada.</li>
     </ul>
   </details>
+  <details><summary>Metrónomo</summary>
+    <ul>
+      <li>Pulsa «Metrónomo» arriba, ajusta el tempo (deslizador, ±1, ±5 o Tap, tocando al ritmo que quieras) y pulsa «Iniciar».</li>
+      <li>Elige cuántos pulsos tiene el compás, la subdivisión, el sonido y el volumen.</li>
+      <li>Cada círculo es un pulso: tócalo para alternar fuerte, normal, suave o silencio.</li>
+      <li><b>Con la pantalla apagada:</b> inicia el metrónomo, y bloquea el móvil. Suena como un reproductor de música y puedes pararlo desde la notificación. Si se corta, abre la app en Chrome y desactiva el ahorro de batería para Chrome.</li>
+      <li>Al cambiar un ajuste con el metrónomo sonando, el compás se reinicia desde el primer pulso.</li>
+      <li>Aumento automático: activa la casilla y elige cada cuántos compases sube el tempo, cuántos BPM sube cada vez y hasta qué tempo llega. Al alcanzar el objetivo se queda ahí.</li>
+    </ul>
+  </details>
   <details><summary>Si algo no funciona</summary>
     <ul>
       <li><b>No se activa el micrófono:</b> ábrela en Chrome, usa una dirección HTTPS y permite el micrófono desde el candado junto a la dirección.</li>
@@ -147,6 +173,9 @@ select{flex:1;min-width:0;padding:11px 10px;border-radius:12px;border:1px solid 
   </details>
 </div>
 
+<div class="vtabs" role="group" aria-label="Vista"><button data-v="tuner" aria-pressed="true">Afinador</button><button data-v="metro" aria-pressed="false">Metrónomo</button></div>
+
+<div id="tunerView">
 <div class="tabs" role="group" aria-label="Modo">
   <button data-m="auto" aria-pressed="true">Auto</button>
   <button data-m="manual" aria-pressed="false">Manual</button>
@@ -177,6 +206,35 @@ select{flex:1;min-width:0;padding:11px 10px;border-radius:12px;border:1px solid 
 </div>
 <button class="big" id="mic">Activar micrófono</button>
 <div class="msg" id="msg"></div>
+</div>
+
+<div id="metroView" hidden>
+  <section class="meter">
+    <div class="note" style="font-size:88px"><span id="bpmv">120</span><small> BPM</small></div>
+    <div class="status" id="tname"></div>
+    <div class="dots" id="dots"></div>
+  </section>
+  <p class="hint">Toca cada círculo para cambiar su acento: fuerte, normal, suave o silencio.</p>
+  <input type="range" id="bpm" min="20" max="300" value="120" aria-label="Tempo en pulsaciones por minuto">
+  <div class="row">
+    <button class="ghost" data-d="-5">−5</button><button class="ghost" data-d="-1">−1</button><button class="ghost" data-d="1">+1</button><button class="ghost" data-d="5">+5</button><button class="ghost" id="tap">Tap</button>
+  </div>
+  <div class="row">
+    <label class="fld">Pulsos por compás<select id="mBeats"></select></label>
+    <label class="fld">Subdivisión<select id="mSub"><option value="1">Ninguna</option><option value="2">Corcheas (×2)</option><option value="3">Tresillos (×3)</option><option value="4">Semicorcheas (×4)</option></select></label>
+  </div>
+  <div class="row">
+    <label class="fld">Sonido<select id="mSnd"><option value="clic">Clic</option><option value="madera">Madera</option><option value="bip">Bip</option><option value="hat">Hi-hat</option></select></label>
+    <label class="fld">Volumen<input type="range" id="mVol" min="10" max="100"></label>
+  </div>
+  <div class="row" style="align-items:center"><label class="fld" style="flex-direction:row;align-items:center;color:var(--ink);font-weight:600"><input type="checkbox" id="aOn"> Aumento automático</label></div>
+  <div class="row" id="aRow" hidden>
+    <label class="fld">Cada compases<input type="number" id="aEvery" min="1" max="99" value="4"></label>
+    <label class="fld">Subir BPM<input type="number" id="aStep" min="1" max="50" value="5"></label>
+    <label class="fld">Hasta BPM<input type="number" id="aTarget" min="20" max="300" value="160"></label>
+  </div>
+  <button class="big" id="mGo">Iniciar metrónomo</button>
+</div>
 </main>
 
 <script>
@@ -197,12 +255,12 @@ const T={
  'Balalaika':{'Estándar':'E4 E4 A4'}
 };
 const $=s=>document.querySelector(s);
-const S={inst:'Guitarra',tun:'Estándar',mode:'auto',sel:0,a4:440,sol:false,snd:true,favs:[],theme:'auto'};
+const S={inst:'Guitarra',tun:'Estándar',mode:'auto',sel:0,a4:440,sol:false,snd:true,lang:'es',favs:[],theme:'auto'};
 let ctx,an,buf,stream,running=false,last=0,hist=[],lastHeard=0,rctx,okSince=0,tunedFired=false,lastTm=null;
 const done=new Set();
 
 function load(){try{Object.assign(S,JSON.parse(localStorage.getItem('gg')||'{}'))}catch(e){}}
-function save(){try{localStorage.setItem('gg',JSON.stringify({a4:S.a4,sol:S.sol,snd:S.snd,favs:S.favs,theme:S.theme,inst:S.inst,tun:S.tun}))}catch(e){}}
+function save(){try{localStorage.setItem('gg',JSON.stringify({a4:S.a4,sol:S.sol,snd:S.snd,lang:S.lang,favs:S.favs,theme:S.theme,inst:S.inst,tun:S.tun}))}catch(e){}}
 const midiOf=n=>{const m=n.match(/^([A-G]#?)(-?\d)$/);return 12*(+m[2]+1)+NE.indexOf(m[1])};
 const nameOf=m=>(S.sol?NS:NE)[((m%12)+12)%12];
 const octOf=m=>Math.floor(m/12)-1;
@@ -223,13 +281,13 @@ function drawGauge(){
 }
 
 function fillInst(){
-  $('#inst').innerHTML=Object.keys(T).map(k=>`<option ${k===S.inst?'selected':''}>${k}</option>`).join('');
+  $('#inst').innerHTML=Object.keys(T).map(k=>`<option value="${k}" ${k===S.inst?'selected':''}>${tx(k)}</option>`).join('');
   fillTun();
 }
 function fillTun(){
   const ks=Object.keys(T[S.inst]);
   if(!ks.includes(S.tun))S.tun=ks[0];
-  $('#tun').innerHTML=ks.map(k=>`<option ${k===S.tun?'selected':''}>${k}</option>`).join('');
+  $('#tun').innerHTML=ks.map(k=>`<option value="${k}" ${k===S.tun?'selected':''}>${tx(k)}</option>`).join('');
   S.sel=0;done.clear();drawStrings();favUI();
 }
 function drawStrings(){
@@ -275,11 +333,11 @@ function update(f){
   $('#nn').textContent=nameOf(tm);$('#no').textContent=octOf(tm);
   $('#hz').textContent=f.toFixed(1)+' Hz';
   $('#ct').textContent=(cents>0?'+':'')+cents.toFixed(0)+' cents';
-  $('#tg').textContent='Objetivo '+hzOf(tm).toFixed(1)+' Hz';
+  $('#tg').textContent=tx('Objetivo')+' '+hzOf(tm).toFixed(1)+' Hz';
   const st=$('#st');
-  if(Math.abs(cents)<=5){st.textContent='Afinada';st.className='status ok'}
-  else if(cents<0){st.textContent='Baja: aprieta la cuerda';st.className='status bad'}
-  else{st.textContent='Alta: afloja la cuerda';st.className='status bad'}
+  if(Math.abs(cents)<=5){st.textContent=tx('Afinada');st.className='status ok'}
+  else if(cents<0){st.textContent=tx('Baja: aprieta la cuerda');st.className='status bad'}
+  else{st.textContent=tx('Alta: afloja la cuerda');st.className='status bad'}
   const mt=$('.meter');
   if(tm!==lastTm){lastTm=tm;okSince=0;tunedFired=false}
   if(Math.abs(cents)<=5){
@@ -302,7 +360,7 @@ function loop(t){
     lastHeard=t;update(m);
   }else if(t-lastHeard>1500){
     hist=[];okSince=0;tunedFired=false;$('.meter').classList.remove('tuned');nT=0;
-    $('#st').textContent='Toca una cuerda';$('#st').className='status';
+    $('#st').textContent=tx('Toca una cuerda');$('#st').className='status';
   }
 }
 
@@ -314,18 +372,18 @@ async function start(){
     const src=ctx.createMediaStreamSource(stream);
     an=ctx.createAnalyser();an.fftSize=8192;src.connect(an);
     buf=new Float32Array(an.fftSize);running=true;
-    $('#mic').textContent='Detener micrófono';$('#mic').classList.add('live');
+    $('#mic').textContent=tx('Detener micrófono');$('#mic').classList.add('live');
     $('#st').textContent='Toca una cuerda';
     requestAnimationFrame(loop);
   }catch(e){
-    $('#msg').textContent='No se pudo acceder al micrófono. Permite el acceso en el navegador; si abres esto dentro de otra app, ábrelo en Chrome.';
+    $('#msg').textContent=tx('No se pudo acceder al micrófono. Permite el acceso en el navegador; si abres esto dentro de otra app, ábrelo en Chrome.');
   }
 }
 function stop(){
   running=false;
   if(stream)stream.getTracks().forEach(t=>t.stop());
   if(ctx)ctx.close();
-  $('#mic').textContent='Activar micrófono';$('#mic').classList.remove('live');
+  $('#mic').textContent=tx('Activar micrófono');$('#mic').classList.remove('live');
   nT=0;
 }
 
@@ -383,6 +441,7 @@ $('#a4').oninput=e=>{S.a4=+e.target.value;$('#a4v').textContent=S.a4;save()};
 $('#sol').onchange=e=>{S.sol=e.target.checked;drawStrings();save()};
 $('#snd').onchange=e=>{S.snd=e.target.checked;save()};
 $('#theme').onchange=e=>{S.theme=e.target.value;applyTheme();save()};
+$('#lang').onchange=e=>{S.lang=e.target.value;save();fillInst();drawStrings();favUI();mUI();drawDots();applyLang()};
 $('#mic').onclick=()=>running?stop():start();
 
 let nT=0,nC=0,nV=0,nLast=performance.now();
@@ -394,10 +453,140 @@ function anim(t){
   requestAnimationFrame(anim);
 }
 requestAnimationFrame(anim);
+/* Metrónomo: se genera un audio con el compás exacto y se reproduce en bucle como medio, para que siga sonando con la pantalla apagada */
+const M={bpm:120,beats:4,sub:1,snd:'clic',vol:.8,acc:[3,2,2,2],auto:false,aEvery:4,aStep:5,aTarget:160,on:false,fb:false};
+try{Object.assign(M,JSON.parse(localStorage.getItem('ggm')||'{}'),{on:false,fb:false})}catch(e){}
+const fixAcc=()=>{M.acc=Array.from({length:M.beats},(_,k)=>M.acc[k]??(k?2:3))};fixAcc();
+const mA=new Audio();mA.loop=true;
+const SR=44100;let mUrl,mData,mDur=1,mSrc,mT0=0,mbt,lastB=-1,taps=[],mRaf=0;
+function mSave(){try{localStorage.setItem('ggm',JSON.stringify({bpm:M.bpm,beats:M.beats,sub:M.sub,snd:M.snd,vol:M.vol,acc:M.acc,auto:M.auto,aEvery:M.aEvery,aStep:M.aStep,aTarget:M.aTarget}))}catch(e){}}
+function tname(b){return b<40?'Grave':b<60?'Largo':b<66?'Larghetto':b<76?'Adagio':b<108?'Andante':b<120?'Moderato':b<156?'Allegro':b<176?'Vivace':b<200?'Presto':'Prestissimo'}
+function tone(d,i0,lvl){
+  const sb=lvl<0,m=sb?.8:({3:1.5,2:1,1:.75})[lvl],a=(sb?.4:({3:1,2:.7,1:.45})[lvl])*M.vol,len=Math.floor(SR*(M.snd==='bip'?.12:.07)),w=2*Math.PI;
+  for(let j=0;j<len&&i0+j<d.length;j++){const t=j/SR;let v;
+    if(M.snd==='clic')v=Math.sin(w*1600*m*t)*Math.exp(-t*90);
+    else if(M.snd==='madera')v=(Math.sin(w*750*m*t)+.5*Math.sin(w*1900*m*t))*Math.exp(-t*60)*.7;
+    else if(M.snd==='bip')v=Math.sin(w*700*m*t)*Math.exp(-t*25);
+    else v=(Math.random()*2-1)*Math.exp(-t*110)*(.6+.4*m);
+    d[i0+j]+=v*a*.9;}
+}
+function gen(){
+  const pulse=60/M.bpm,bars=Math.max(1,Math.ceil(20/(pulse*M.beats))),d=new Float32Array(Math.round(bars*M.beats*pulse*SR));
+  for(let b=0;b<bars;b++)for(let k=0;k<M.beats;k++)for(let s=0;s<M.sub;s++){
+    const lvl=s===0?M.acc[k]:-1;if(lvl===0)continue;
+    tone(d,Math.round(((b*M.beats+k)+s/M.sub)*pulse*SR),lvl);
+  }
+  return d;
+}
+function wav(d){
+  const n=d.length,b=new DataView(new ArrayBuffer(44+n*2)),w=(o,s)=>[...s].forEach((c,i)=>b.setUint8(o+i,c.charCodeAt(0)));
+  w(0,'RIFF');b.setUint32(4,36+n*2,true);w(8,'WAVEfmt ');b.setUint32(16,16,true);b.setUint16(20,1,true);b.setUint16(22,1,true);b.setUint32(24,SR,true);b.setUint32(28,SR*2,true);b.setUint16(32,2,true);b.setUint16(34,16,true);w(36,'data');b.setUint32(40,n*2,true);
+  for(let i=0;i<n;i++)b.setInt16(44+i*2,Math.max(-1,Math.min(1,d[i]))*32767,true);
+  return URL.createObjectURL(new Blob([b],{type:'audio/wav'}));
+}
+function fbStop(){try{mSrc&&mSrc.stop()}catch(e){}mSrc=null}
+function fbStart(){
+  fbStop();rctx=rctx||new (window.AudioContext||window.webkitAudioContext)();rctx.resume();
+  const b=rctx.createBuffer(1,mData.length,SR);b.copyToChannel(mData,0);
+  mSrc=rctx.createBufferSource();mSrc.buffer=b;mSrc.loop=true;mSrc.connect(rctx.destination);mSrc.start();mT0=rctx.currentTime;
+}
+function build(){
+  mData=gen();mDur=mData.length/SR;
+  if(mUrl)URL.revokeObjectURL(mUrl);mUrl=wav(mData);
+  if(M.on){if(M.fb)fbStart();else{mA.src=mUrl;mA.play().catch(()=>{M.fb=true;fbStart()})}}
+}
+function rebuild(){clearTimeout(mbt);mbt=setTimeout(build,120)}
+function ms(){
+  if(!('mediaSession' in navigator))return;
+  try{navigator.mediaSession.metadata=new MediaMetadata({title:M.bpm+' BPM · '+M.beats+' pulsos',artist:'Tuner GP',album:'Metrónomo'});
+  navigator.mediaSession.setActionHandler('play',mStart);navigator.mediaSession.setActionHandler('pause',mStop);
+  navigator.mediaSession.playbackState=M.on?'playing':'paused'}catch(e){}
+}
+function drawDots(){$('#dots').innerHTML=M.acc.map((v,k)=>`<button class="dot l${v}" data-k="${k}" aria-label="Pulso ${k+1}">${k+1}</button>`).join('')}
+function mUI(){
+  $('#bpmv').textContent=M.bpm;$('#tname').textContent=tname(M.bpm);$('#bpm').value=M.bpm;
+  $('#mBeats').value=M.beats;$('#mSub').value=M.sub;$('#mSnd').value=M.snd;$('#mVol').value=Math.round(M.vol*100);
+  $('#aOn').checked=M.auto;$('#aEvery').value=M.aEvery;$('#aStep').value=M.aStep;$('#aTarget').value=M.aTarget;$('#aRow').hidden=!M.auto;
+}
+let barN=0,barT=0;
+function tickBar(){
+  if(!M.on)return;
+  barN++;
+  if(M.auto&&barN%M.aEvery===0&&M.bpm<M.aTarget){
+    M.bpm=Math.min(M.aTarget,M.bpm+M.aStep);mUI();mSave();clearTimeout(mbt);build();ms();
+  }
+  barT=setTimeout(tickBar,M.beats*60000/M.bpm);
+}
+function setBpm(v){M.bpm=Math.max(20,Math.min(300,Math.round(v)));mUI();mSave();rebuild();ms()}
+function mVis(){
+  if(!M.on||document.hidden)return;
+  const pos=(M.fb?rctx.currentTime-mT0:mA.currentTime)%mDur,k=Math.floor(pos/(60/M.bpm)+1e-6)%M.beats;
+  if(k!==lastB){lastB=k;document.querySelectorAll('#dots .dot').forEach((b,i)=>b.classList.toggle('now',i===k))}
+  mRaf=requestAnimationFrame(mVis);
+}
+async function mStart(){
+  if(!mData)build();
+  M.on=true;barN=0;clearTimeout(barT);barT=setTimeout(tickBar,M.beats*60000/M.bpm);
+  if(!M.fb){try{mA.src=mUrl;await mA.play()}catch(e){M.fb=true}}
+  if(M.fb)fbStart();
+  $('#mGo').textContent=tx('Detener metrónomo');$('#mGo').classList.add('live');ms();lastB=-1;cancelAnimationFrame(mRaf);mRaf=requestAnimationFrame(mVis);
+}
+function mStop(){
+  M.on=false;clearTimeout(barT);mA.pause();fbStop();
+  $('#mGo').textContent=tx('Iniciar metrónomo');$('#mGo').classList.remove('live');
+  document.querySelectorAll('#dots .dot').forEach(b=>b.classList.remove('now'));ms();
+}
+$('#mBeats').innerHTML=Array.from({length:12},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
+drawDots();mUI();
+document.querySelectorAll('.vtabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.vtabs button').forEach(x=>x.setAttribute('aria-pressed',x===b));
+  $('#tunerView').hidden=b.dataset.v!=='tuner';$('#metroView').hidden=b.dataset.v!=='metro';
+});
+$('#bpm').oninput=e=>setBpm(+e.target.value);
+document.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>setBpm(M.bpm+ +b.dataset.d));
+$('#tap').onclick=()=>{
+  const n=performance.now();if(taps.length&&n-taps[taps.length-1]>2000)taps=[];
+  taps.push(n);if(taps.length>7)taps.shift();
+  if(taps.length>1)setBpm(60000/((taps[taps.length-1]-taps[0])/(taps.length-1)));
+};
+$('#mBeats').onchange=e=>{M.beats=+e.target.value;fixAcc();drawDots();mSave();rebuild();ms()};
+$('#mSub').onchange=e=>{M.sub=+e.target.value;mSave();rebuild()};
+$('#mSnd').onchange=e=>{M.snd=e.target.value;mSave();rebuild()};
+$('#mVol').oninput=e=>{M.vol=+e.target.value/100;mSave();rebuild()};
+$('#dots').onclick=e=>{const b=e.target.closest('button');if(!b)return;const k=+b.dataset.k;M.acc[k]=(M.acc[k]+3)%4;drawDots();mSave();rebuild()};
+$('#aOn').onchange=e=>{M.auto=e.target.checked;mUI();mSave()};
+$('#aEvery').onchange=e=>{M.aEvery=Math.max(1,Math.round(+e.target.value)||1);mSave()};
+$('#aStep').onchange=e=>{M.aStep=Math.max(1,Math.round(+e.target.value)||1);mSave()};
+$('#aTarget').onchange=e=>{M.aTarget=Math.max(20,Math.min(300,Math.round(+e.target.value)||160));mSave()};
+$('#mGo').onclick=()=>M.on?mStop():mStart();
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&M.on){lastB=-1;cancelAnimationFrame(mRaf);mRaf=requestAnimationFrame(mVis)}});
+build();
+
+const EN={'Ajustes':'Settings','Ayuda':'Help','Afinador':'Tuner','Metrónomo':'Metronome','Cromático':'Chromatic','Modo':'Mode','Vista':'View','Instrumento':'Instrument','Afinación':'Tuning','Guardar como favorita':'Save as favorite','Frecuencia de referencia':'Reference frequency','Tempo en pulsaciones por minuto':'Tempo in beats per minute','Toca el micrófono y pulsa una cuerda':'Turn on the mic and pluck a string','Activar micrófono':'Start microphone','Detener micrófono':'Stop microphone','Escuchar nota':'Play note','Frecuencia del La (A4)':'Reference pitch (A4)','Notas en Do, Re, Mi…':'Notes as Do, Re, Mi…','Sonido y vibración al afinar':'Sound and vibration when in tune','Tema':'Theme','Automático':'Automatic','Claro':'Light','Oscuro':'Dark','Afinaciones favoritas':'Favorite tunings','Pulsa ☆ para guardar la afinación actual.':'Tap ☆ to save the current tuning.','Afinada':'In tune','Baja: aprieta la cuerda':'Too low: tighten the string','Alta: afloja la cuerda':'Too high: loosen the string','Toca una cuerda':'Pluck a string','Objetivo':'Target','No se pudo acceder al micrófono. Permite el acceso en el navegador; si abres esto dentro de otra app, ábrelo en Chrome.':'Could not access the microphone. Allow access in the browser; if you opened this inside another app, open it in Chrome.','Guitarra':'Guitar','Guitarra 7 cuerdas':'7-string guitar','Guitarra 12 cuerdas':'12-string guitar','Bajo 4 cuerdas':'4-string bass','Bajo 5 cuerdas':'5-string bass','Ukelele':'Ukulele','Violín':'Violin','Mandolina':'Mandolin','Violonchelo':'Cello','Estándar':'Standard','Estándar (GCEA)':'Standard (GCEA)','Medio tono abajo':'Half step down','Un tono abajo':'Whole step down','Barítono':'Baritone','Doble C':'Double C','Corcheas (×2)':'Eighths (×2)','Tresillos (×3)':'Triplets (×3)','Semicorcheas (×4)':'Sixteenths (×4)','Ninguna':'None','Pulsos por compás':'Beats per bar','Subdivisión':'Subdivision','Sonido':'Sound','Clic':'Click','Madera':'Wood','Bip':'Beep','Volumen':'Volume','Aumento automático':'Automatic tempo increase','Cada compases':'Every bars','Subir BPM':'Increase by BPM','Hasta BPM':'Up to BPM','Aumento automático: activa la casilla y elige cada cuántos compases sube el tempo, cuántos BPM sube cada vez y hasta qué tempo llega. Al alcanzar el objetivo se queda ahí.':'Automatic increase: tick the box and choose every how many bars the tempo goes up, how many BPM it adds each time and the tempo it stops at. Once it reaches the target it stays there.','Toca cada círculo para cambiar su acento: fuerte, normal, suave o silencio.':'Tap each circle to change its accent: strong, normal, soft or silent.','Primeros pasos':'Getting started','Pulsa «Activar micrófono» y acepta el permiso.':'Press «Start microphone» and allow access.','Elige tu instrumento y la afinación en los desplegables.':'Choose your instrument and tuning from the dropdowns.','Toca una sola cuerda al aire y déjala sonar.':'Pluck one open string and let it ring.','Mira la nota y la aguja, y gira la clavija hasta que la aguja quede en el centro.':'Look at the note and needle, and turn the tuning peg until the needle is centered.','Cómo leer el medidor':'How to read the meter','Aguja a la izquierda («Baja»):':'Needle to the left («Too low»):','la nota es demasiado grave. Aprieta la clavija para subirla.':'the note is too low. Tighten the peg to raise it.','Aguja a la derecha («Alta»):':'Needle to the right («Too high»):','la nota es demasiado aguda. Afloja la clavija.':'the note is too high. Loosen the peg.','Centro, zona verde (±5 cents):':'Center, green zone (±5 cents):','cuerda afinada. Se ilumina en verde, suena un «ding» y la cuerda se marca con ✓.':'string in tune. It turns green, plays a «ding» and the string gets a ✓.','Cents:':'Cents:','son centésimas de semitono. 100 cents equivalen a un semitono entero.':'hundredths of a semitone. 100 cents equal one full semitone.','Los tres modos':'The three modes','Auto:':'Auto:','detecta qué cuerda tocas y te dice cuánto te falta. Ideal para empezar.':'detects which string you play and tells you how far off it is. Ideal to start.','Manual:':'Manual:','pulsa una cuerda para fijarla como objetivo. También suena la nota de referencia; el botón «Escuchar nota» la repite.':'tap a string to lock it as the target. The reference note plays too; the «Play note» button repeats it.','Cromático:':'Chromatic:','detecta cualquier nota, sin depender de una afinación. Sirve para otros instrumentos o afinaciones libres.':'detects any note, without relying on a tuning. Useful for other instruments or free tunings.','Consejos para afinar bien':'Tips for tuning well','Busca un sitio silencioso y toca una cuerda cada vez.':'Find a quiet spot and play one string at a time.','Púlsala con fuerza media y déjala sonar; no la ahogues con la mano.':'Pluck it with medium force and let it ring; do not mute it with your hand.','Acerca el micrófono del móvil al instrumento.':'Bring the phone mic close to the instrument.','Afina siempre subiendo hacia la nota. Si te pasas, baja un poco y vuelve a subir.':'Always tune up toward the note. If you overshoot, lower it a bit and tune up again.','Al terminar, repasa la primera cuerda: la tensión del mástil cambia y puede haberse movido.':'When you finish, check the first string again: the neck tension changes and it may have moved.','Guitarra eléctrica: usa sonido limpio, sin distorsión ni efectos.':'Electric guitar: use a clean tone, without distortion or effects.','Pulsa ☆ para guardar una afinación como favorita y recuperarla desde Ajustes.':'Tap ☆ to save a tuning as a favorite and recover it from Settings.','Ajustes útiles':'Useful settings','Frecuencia del La:':'Reference pitch:','440 Hz es lo normal. Cámbiala solo si tocas con otro instrumento afinado distinto.':'440 Hz is standard. Change it only if you play with another instrument tuned differently.','Notas en Do, Re, Mi:':'Solfège names:','cambia los nombres de las notas a sistema latino.':'switches note names to the Latin solfège system.','Sonido y vibración:':'Sound and vibration:','actívalos o quítalos cuando la cuerda queda afinada.':'turn them on or off when the string is in tune.','Metrónomo':'Metronome','Pulsa «Metrónomo» arriba, ajusta el tempo (deslizador, ±1, ±5 o Tap, tocando al ritmo que quieras) y pulsa «Iniciar».':'Press «Metronome» at the top, set the tempo (slider, ±1, ±5 or Tap, tapping at the rhythm you want) and press «Start».','Elige cuántos pulsos tiene el compás, la subdivisión, el sonido y el volumen.':'Choose how many beats per bar, the subdivision, the sound and the volume.','Cada círculo es un pulso: tócalo para alternar fuerte, normal, suave o silencio.':'Each circle is a beat: tap it to cycle through strong, normal, soft or silent.','Con la pantalla apagada:':'With the screen off:','inicia el metrónomo, y bloquea el móvil. Suena como un reproductor de música y puedes pararlo desde la notificación. Si se corta, abre la app en Chrome y desactiva el ahorro de batería para Chrome.':'start the metronome and lock the phone. It plays like a music player and you can stop it from the notification. If it cuts out, open the app in Chrome and turn off battery saving for Chrome.','Al cambiar un ajuste con el metrónomo sonando, el compás se reinicia desde el primer pulso.':'When you change a setting while the metronome is playing, the bar restarts from the first beat.','Si algo no funciona':'If something does not work','No se activa el micrófono:':'Microphone does not start:','ábrela en Chrome, usa una dirección HTTPS y permite el micrófono desde el candado junto a la dirección.':'open it in Chrome, use an HTTPS address and allow the microphone from the lock icon next to the address.','La nota salta o no detecta nada:':'The note jumps or nothing is detected:','toca más fuerte, acércate al micrófono y reduce el ruido de fondo.':'play harder, get closer to the mic and reduce background noise.','Detecta una octava distinta:':'Wrong octave detected:','deja que la cuerda suene unos segundos; al inicio del golpe hay armónicos que confunden.':'let the string ring for a few seconds; the attack contains harmonics that can confuse it.','El «ding» interfiere:':'The «ding» interferes:','desactiva el sonido en Ajustes y usa solo la vibración y el efecto visual.':'turn off the sound in Settings and use only vibration and the visual effect.'};
+const REV={};for(const k in EN)REV[EN[k]]=k;
+function tx(s){return S.lang==='en'&&EN[s]!==undefined?EN[s]:s}
+function applyLang(){
+  const en=S.lang==='en';
+  document.documentElement.lang=en?'en':'es';
+  const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+  let n;
+  while((n=w.nextNode())){
+    if(!n.parentNode||/^(SCRIPT|STYLE)$/.test(n.parentNode.nodeName))continue;
+    const t=n.nodeValue.trim();if(!t)continue;
+    if(n.__es===undefined)n.__es=REV[t]??t;
+    const out=en?(EN[n.__es]??n.__es):n.__es;
+    if(out!==t)n.nodeValue=n.nodeValue.replace(t,out);
+  }
+  document.querySelectorAll('[aria-label]').forEach(el=>{
+    if(el.__al===undefined){const v=el.getAttribute('aria-label');el.__al=REV[v]??v}
+    el.setAttribute('aria-label',en?(EN[el.__al]??el.__al):el.__al);
+  });
+}
 load();
 if(!T[S.inst])S.inst='Guitarra';
 $('#a4').value=S.a4;$('#a4v').textContent=S.a4;$('#sol').checked=S.sol;$('#snd').checked=S.snd;$('#theme').value=S.theme;
 applyTheme();drawGauge();fillInst();
+$('#lang').value=S.lang;applyLang();
 setTimeout(()=>{const s=$('#splash');s.classList.add('hide');setTimeout(()=>s.remove(),600)},3000);
 </script>
 </body>
