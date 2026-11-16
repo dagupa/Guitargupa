@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.TunerGP" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <!-- Splash nativo (Android 12+ y compatibilidad); luego pasa a Theme.TunerGP. -->
+    <style name="Theme.TunerGP.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@android:color/black</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/icon_art_inset</item>
+        <item name="postSplashScreenTheme">@style/Theme.TunerGP</item>
+    </style>
+</resources>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Tuner GP</string>
+    <string name="keepalive_channel">Metrónomo en segundo plano</string>
+    <string name="keepalive_text">Metrónomo sonando</string>
+    <string name="keepalive_stop">Detener</string>
+</resources>
