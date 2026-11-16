@@ -20,7 +20,7 @@ select:focus,input:focus,button:focus-visible{outline:2px solid #b88c3b;outline-
 .display{text-align:center;padding:18px 0 4px}.note{font-size:clamp(74px,19vw,118px);font-weight:800;line-height:.95;letter-spacing:-7px;text-shadow:0 3px 25px #0005}.note sup{font-size:.27em;letter-spacing:0;color:var(--gold);vertical-align:top;margin-left:5px}
 .frequency{font-variant-numeric:tabular-nums;color:var(--muted);font-size:15px;margin:12px 0 5px}
 .meter{height:clamp(110px,28vw,155px);position:relative;max-width:520px;margin:4px auto 0}
-.meter svg{width:100%;height:100%;overflow:visible}.needle{position:absolute;left:50%;bottom:14px;width:3px;height:68%;background:linear-gradient(var(--gold2),var(--gold));transform-origin:bottom center;transform:translateX(-50%) rotate(0);border-radius:4px;box-shadow:0 0 12px #d7a84b55}.needle:after{content:"";position:absolute;bottom:-7px;left:-6px;width:15px;height:15px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 4px #d7a84b22}
+.meter svg{width:100%;height:100%;overflow:visible}.needle{position:absolute;left:50%;bottom:14px;width:3px;height:68%;background:linear-gradient(var(--gold2),var(--gold));transform-origin:bottom center;transform:translateX(-50%) rotate(0);border-radius:4px;box-shadow:0 0 12px #d7a84b55;will-change:transform}.needle:after{content:"";position:absolute;bottom:-7px;left:-6px;width:15px;height:15px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 4px #d7a84b22}
 .scale{display:flex;justify-content:space-between;max-width:480px;margin:-3px auto 0;color:var(--muted);font-size:10px;letter-spacing:1px}.scale span:nth-child(2){color:var(--gold)}
 .status{font-size:13px;letter-spacing:1.6px;font-weight:800;color:var(--muted);margin-top:14px}.status.good{color:var(--green)}.status.low{color:#e5b65c}
 .controls{display:flex;gap:9px;margin-top:18px}.controls button{flex:1;font-size:12px;font-weight:700;letter-spacing:.5px}.primary{background:#685027;border-color:#b28b43;color:#fff0c9}.secondary{background:#2b2b22}
@@ -63,7 +63,7 @@ const tunings={
 "ebass":{name:"Bajo estándar",desc:"E A D G",inst:"bass",s:[["E",1,41.203],["A",1,55],["D",2,73.416],["G",2,98]]},
 "ukulele":{name:"Ukelele estándar",desc:"G C E A",inst:"ukulele",s:[["G",4,392],["C",4,261.626],["E",4,329.628],["A",4,440]]}
 };
-let current="standard",tuning=tunings.standard.s,selected=0,mode="auto",ctx,stream,analyser,data,raf,osc,gain,smoothed=[],lastFreq=0;
+let current="standard",tuning=tunings.standard.s,selected=0,mode="auto",ctx,stream,analyser,data,raf,osc,gain,smoothed=[],lastFreq=0,needleTarget=0,needleCurrent=0,lastSignalAt=0,referenceTimer=null;
 function renderTunings(){let inst=$("instrument").value;let list=Object.entries(tunings).filter(([k,v])=>v.inst===inst);$("tunings").innerHTML=list.map(([k,v])=>`<button class="tuningbtn ${k===current?'active':''}" data-key="${k}"><strong>${v.name}</strong><small>${v.desc}</small></button>`).join("");document.querySelectorAll(".tuningbtn").forEach(b=>b.onclick=()=>loadTune(b.dataset.key));}
 function loadTune(key){current=key;tuning=tunings[key].s;selected=0;mode="auto";setMode();renderTunings();renderStrings();}
 function renderStrings(){$("strings").innerHTML=tuning.map((s,i)=>`<button class="string ${i===selected?'active':''}" data-i="${i}"><b>${s[0]}</b><small>${s[1]} · ${s[2]}Hz</small></button>`).join("");document.querySelectorAll(".string").forEach(b=>b.onclick=()=>{selected=+b.dataset.i;mode="manual";setMode();renderStrings();$("status").textContent="CUERDA "+(selected+1)+" SELECCIONADA";});}
@@ -87,17 +87,31 @@ function autocorr(buf,sr){
  let delta=0;if(vals.length===3){let den=vals[0]-2*vals[1]+vals[2];if(Math.abs(den)>1e-9)delta=.5*(vals[0]-vals[2])/den;}
  return rate/(bestLag+delta);
 }
-function updateNeedle(c){let clamped=Math.max(-50,Math.min(50,c));$("needle").style.transform=`translateX(-50%) rotate(${clamped/50*43}deg)`;}
+function updateNeedle(c){needleTarget=Math.max(-50,Math.min(50,c))/50*43;}
+function animateNeedle(){// Movimiento continuo, con amortiguación; reposo siempre centrado.
+ const now=performance.now();if(!analyser||now-lastSignalAt>420)needleTarget=0;
+ needleCurrent+=(needleTarget-needleCurrent)*.12;
+ if(Math.abs(needleTarget-needleCurrent)<.025)needleCurrent=needleTarget;
+ $("needle").style.transform=`translateX(-50%) rotate(${needleCurrent}deg)`;
+ requestAnimationFrame(animateNeedle);
+}requestAnimationFrame(animateNeedle);
 function setStatus(c){let e=$("status");if(Math.abs(c)<=3){e.textContent="✓ AFINACIÓN PERFECTA";e.className="status good"}else if(c<0){e.textContent="AFINA MÁS AGUDO ↑";e.className="status low"}else{e.textContent="AFINA MÁS GRAVE ↓";e.className="status low"}}
 function draw(){if(!analyser)return;analyser.getFloatTimeDomainData(data);let f=autocorr(data,ctx.sampleRate);
-if(f>30&&f<1300){smoothed.push(f);if(smoothed.length>5)smoothed.shift();let sorted=[...smoothed].sort((a,b)=>a-b);f=sorted[Math.floor(sorted.length/2)];lastFreq=f;let p=getPitch(f),c=p.cents;
+if(f>30&&f<1300){lastSignalAt=performance.now();smoothed.push(f);if(smoothed.length>9)smoothed.shift();let sorted=[...smoothed].sort((a,b)=>a-b);f=sorted[Math.floor(sorted.length/2)];lastFreq=f;let p=getPitch(f),c=p.cents;
 if(mode==="manual"){let target=tuning[selected][2],targetMidi=69+12*Math.log2(target/(+$("a4").value));let measured=69+12*Math.log2(f/(+$("a4").value));c=(measured-targetMidi)*100;let t=tuning[selected];$("note").innerHTML=t[0]+`<sup>${t[1]}</sup>`;$("frequency").textContent=f.toFixed(2)+" Hz · "+(c>0?"+":"")+c.toFixed(1)+" cents";}
 else{$("note").innerHTML=p.name+`<sup>${p.oct}</sup>`;$("frequency").textContent=f.toFixed(2)+" Hz · "+(c>0?"+":"")+c.toFixed(1)+" cents";}
 updateNeedle(c);setStatus(c);
-}raf=requestAnimationFrame(draw);}
-$("mic").onclick=async()=>{try{if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;cancelAnimationFrame(raf);analyser=null;$("mic").textContent="🎙 ACTIVAR MICRÓFONO";$("status").textContent="MICRÓFONO DESACTIVADO";return}
-stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});ctx=new (window.AudioContext||window.webkitAudioContext)();await ctx.resume();let source=ctx.createMediaStreamSource(stream);analyser=ctx.createAnalyser();analyser.fftSize=4096;source.connect(analyser);data=new Float32Array(analyser.fftSize);smoothed=[];$("mic").textContent="■ DETENER MICRÓFONO";$("status").textContent="ESCUCHANDO…";draw();}catch(e){$("status").textContent="ERROR DE MICRÓFONO";$("hint").textContent="Permite el acceso al micrófono. Necesita HTTPS o localhost en el navegador.";}}
-$("reference").onclick=()=>{if(osc){osc.stop();osc=null;$("reference").textContent="♫ NOTA DE REFERENCIA";return}ctx=ctx||new AudioContext();let f=tuning[selected][2];osc=ctx.createOscillator();gain=ctx.createGain();osc.type="sine";osc.frequency.value=f;gain.gain.setValueAtTime(.0001,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(.13,ctx.currentTime+.04);gain.gain.setTargetAtTime(.0001,ctx.currentTime+1.3,.08);osc.connect(gain);gain.connect(ctx.destination);osc.start();osc.stop(ctx.currentTime+1.8);osc.onended=()=>{osc=null;$("reference").textContent="♫ NOTA DE REFERENCIA"};$("reference").textContent="■ PARAR NOTA";};
+}else if(performance.now()-lastSignalAt>420){smoothed=[];$("status")?.classList.remove("good","low");if(stream)$("status").textContent="ESPERANDO UNA CUERDA…";}raf=requestAnimationFrame(draw);}
+$("mic").onclick=async()=>{try{if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;cancelAnimationFrame(raf);analyser=null;smoothed=[];needleTarget=0;lastSignalAt=0;$("mic").textContent="🎙 ACTIVAR MICRÓFONO";$("status").textContent="MICRÓFONO DESACTIVADO";return}
+stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});ctx=new (window.AudioContext||window.webkitAudioContext)();await ctx.resume();let source=ctx.createMediaStreamSource(stream);analyser=ctx.createAnalyser();analyser.fftSize=4096;source.connect(analyser);data=new Float32Array(analyser.fftSize);smoothed=[];lastSignalAt=performance.now();needleTarget=0;$("mic").textContent="■ DETENER MICRÓFONO";$("status").textContent="ESCUCHANDO…";draw();}catch(e){$("status").textContent="ERROR DE MICRÓFONO";$("hint").textContent="Permite el acceso al micrófono. Necesita HTTPS o localhost en el navegador.";}}
+$("reference").onclick=async()=>{try{
+ if(osc){try{osc.stop()}catch(e){}osc=null;if(referenceTimer){clearTimeout(referenceTimer);referenceTimer=null;}$("reference").textContent="♫ NOTA DE REFERENCIA";return;}
+ ctx=ctx||new (window.AudioContext||window.webkitAudioContext)();await ctx.resume();
+ const f=tuning[selected][2];osc=ctx.createOscillator();gain=ctx.createGain();osc.type="sine";osc.frequency.setValueAtTime(f,ctx.currentTime);
+ gain.gain.setValueAtTime(.0001,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(.16,ctx.currentTime+.035);gain.gain.setTargetAtTime(.0001,ctx.currentTime+1.15,.10);
+ osc.connect(gain);gain.connect(ctx.destination);osc.start();osc.stop(ctx.currentTime+1.65);
+ $("reference").textContent="■ PARAR NOTA";osc.onended=()=>{osc=null;$("reference").textContent="♫ NOTA DE REFERENCIA";};
+ }catch(e){$("status").textContent="AUDIO NO DISPONIBLE";$("hint").textContent="Toca el botón de nuevo y comprueba que el navegador permite audio.";}};
 $("saveCustom").onclick=()=>{let vals=[...document.querySelectorAll("#custom input")].map(x=>+x.value).filter(x=>x>0);if(vals.length<2){alert("Introduce al menos dos frecuencias válidas.");return}let s=vals.map((f,i)=>{let p=getPitch(f);return [p.name,p.oct,f]});tunings.custom={name:"Personalizada",desc:vals.map(x=>x.toFixed(1)).join(" · ")+" Hz",inst:$("instrument").value,s};current="custom";tuning=s;selected=0;try{localStorage.setItem("tunergp-custom",JSON.stringify(vals));}catch(e){}renderTunings();renderStrings();};
 $("custom").innerHTML=Array.from({length:6},(_,i)=>`<input type="number" step=".01" placeholder="Hz ${i+1}" aria-label="Frecuencia cuerda ${i+1}">`).join("");
 // Persistencia de preferencias y restauración segura.
